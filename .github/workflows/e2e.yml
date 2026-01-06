@@ -5,11 +5,7 @@ on:
 
 jobs:
   e2e-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-15-intel]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
 
@@ -19,22 +15,10 @@ jobs:
           repository: ${{ github.repository }}
           path: src/github.com/Mirantis/cri-dockerd
 
-      - name: Load environment (Linux)
-        if: runner.os == 'Linux'
+      - name: Load environment
         uses: c-py/action-dotenv-to-setenv@v4
         with:
           env-file: src/github.com/Mirantis/cri-dockerd/.github/.env
-
-      - name: Load environment (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -a
-          source src/github.com/Mirantis/cri-dockerd/.github/.env
-          set +a
-          echo "GO_VERSION=$GO_VERSION" >> $GITHUB_ENV
-          echo "HUGO_VERSION=$HUGO_VERSION" >> $GITHUB_ENV
-          echo "LIMA_VERSION=$LIMA_VERSION" >> $GITHUB_ENV
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v4
@@ -48,43 +32,7 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - name: Setup Docker on macOS
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          # macOS 13 runners come with Docker pre-installed
-          # We just need to start Docker Desktop if it's not running
-
-          # Check if Docker is already running
-          if ! docker info &>/dev/null; then
-            echo "Docker is not running. Starting Docker Desktop..."
-
-            # Start Docker Desktop
-            open -a Docker
-
-            # Wait for Docker to be ready (up to 5 minutes)
-            echo "Waiting for Docker to start..."
-            for i in {1..60}; do
-              if docker info &>/dev/null; then
-                echo "Docker is ready"
-                break
-              fi
-              echo "Waiting for Docker... ($i/60)"
-              sleep 5
-            done
-
-            if ! docker info &>/dev/null; then
-              echo "Docker failed to start"
-              exit 1
-            fi
-          else
-            echo "Docker is already running"
-          fi
-
-          docker version
-
       - name: Install docker
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           arch=$(dpkg --print-architecture)
