@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -18,21 +18,3 @@ limitations under the License.
 */
 
 package containermanager
-
-import (
-	"fmt"
-
-	"github.com/Mirantis/cri-dockerd/libdocker"
-)
-
-type unsupportedContainerManager struct {
-}
-
-// NewContainerManager creates a new instance of ContainerManager
-func NewContainerManager(_ string, _ libdocker.DockerClientInterface) ContainerManager {
-	return &unsupportedContainerManager{}
-}
-
-func (m *unsupportedContainerManager) Start() error {
-	return fmt.Errorf("Container Manager is unsupported in this build")
-}
