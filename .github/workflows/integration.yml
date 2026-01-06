@@ -5,7 +5,11 @@ on:
 
 jobs:
   integration:
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - name: Checkout cri-dockerd
@@ -30,9 +34,41 @@ jobs:
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-          sudo sysctl net.ipv6.conf.all.disable_ipv6=0
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo sysctl net.ipv6.conf.all.disable_ipv6=0
+          fi
+
+      - name: Install docker on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Install Docker Desktop for Mac
+          brew install --cask docker
+
+          # Start Docker Desktop
+          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
+          open -a Docker
+
+          # Wait for Docker to be ready
+          echo "Waiting for Docker to start..."
+          for i in {1..60}; do
+            if docker info &>/dev/null; then
+              echo "Docker is ready"
+              break
+            fi
+            echo "Waiting for Docker... ($i/60)"
+            sleep 5
+          done
+
+          if ! docker info &>/dev/null; then
+            echo "Docker failed to start"
+            exit 1
+          fi
+
+          docker version
 
       - name: Install docker
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -129,7 +165,7 @@ jobs:
           sudo /usr/local/bin/critest -runtime-endpoint=unix:///var/run/cri-dockerd.sock -benchmark
 
       - name: Dump docker logs
-        if: always()
+        if: always() && runner.os == 'Linux'
         run: |
           mkdir -p ${{ github.workspace }}/logs
           sudo journalctl -eu docker | sudo tee ${{ github.workspace }}/logs/docker.log
@@ -139,7 +175,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs
+          name: logs-${{ matrix.os }}
           path: logs
 
   selinux:

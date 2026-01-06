@@ -5,7 +5,11 @@ on:
 
 jobs:
   e2e-test:
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 240
     steps:
 
@@ -32,7 +36,37 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
+      - name: Install docker on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Install Docker Desktop for Mac
+          brew install --cask docker
+
+          # Start Docker Desktop
+          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
+          open -a Docker
+
+          # Wait for Docker to be ready
+          echo "Waiting for Docker to start..."
+          for i in {1..60}; do
+            if docker info &>/dev/null; then
+              echo "Docker is ready"
+              break
+            fi
+            echo "Waiting for Docker... ($i/60)"
+            sleep 5
+          done
+
+          if ! docker info &>/dev/null; then
+            echo "Docker failed to start"
+            exit 1
+          fi
+
+          docker version
+
       - name: Install docker
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           arch=$(dpkg --print-architecture)
