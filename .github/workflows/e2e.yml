@@ -19,10 +19,22 @@ jobs:
           repository: ${{ github.repository }}
           path: src/github.com/Mirantis/cri-dockerd
 
-      - name: Load environment
+      - name: Load environment (Linux)
+        if: runner.os == 'Linux'
         uses: c-py/action-dotenv-to-setenv@v4
         with:
           env-file: src/github.com/Mirantis/cri-dockerd/.github/.env
+
+      - name: Load environment (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -a
+          source src/github.com/Mirantis/cri-dockerd/.github/.env
+          set +a
+          echo "GO_VERSION=$GO_VERSION" >> $GITHUB_ENV
+          echo "HUGO_VERSION=$HUGO_VERSION" >> $GITHUB_ENV
+          echo "LIMA_VERSION=$LIMA_VERSION" >> $GITHUB_ENV
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v4
