@@ -58,7 +58,6 @@ jobs:
           brew install --cask docker
 
           # Start Docker Desktop
-          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
           open -a Docker
 
           # Wait for Docker to be ready
