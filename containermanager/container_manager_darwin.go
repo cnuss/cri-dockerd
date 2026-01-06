@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -20,19 +20,20 @@ limitations under the License.
 package containermanager
 
 import (
-	"fmt"
-
 	"github.com/Mirantis/cri-dockerd/libdocker"
+	"github.com/sirupsen/logrus"
 )
 
-type unsupportedContainerManager struct {
+// containerManager is a no-op implementation for Darwin/macOS
+type containerManager struct {
 }
 
 // NewContainerManager creates a new instance of ContainerManager
 func NewContainerManager(_ string, _ libdocker.DockerClientInterface) ContainerManager {
-	return &unsupportedContainerManager{}
+	return &containerManager{}
 }
 
-func (m *unsupportedContainerManager) Start() error {
-	return fmt.Errorf("Container Manager is unsupported in this build")
+func (m *containerManager) Start() error {
+	logrus.Info("Container manager started on Darwin platform with limited functionality (no cgroup/OOM management)")
+	return nil
 }
