@@ -57,8 +57,15 @@ jobs:
           # Install Docker Desktop for Mac
           brew install --cask docker
 
-          # Start Docker Desktop
-          open -a Docker
+          # Wait for installation to complete
+          sleep 5
+
+          # Start Docker Desktop - try multiple approaches
+          if [ -d "/Applications/Docker.app" ]; then
+            open /Applications/Docker.app
+          else
+            open -a "Docker Desktop" || open -a Docker || true
+          fi
 
           # Wait for Docker to be ready
           echo "Waiting for Docker to start..."
