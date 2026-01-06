@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-latest]
+        os: [ubuntu-22.04, macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -50,37 +50,37 @@ jobs:
             sudo sysctl net.ipv6.conf.all.disable_ipv6=0
           fi
 
-      - name: Install docker on macOS
+      - name: Setup Docker on macOS
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Install Docker Desktop for Mac
-          brew install --cask docker
+          # macOS 13 runners come with Docker pre-installed
+          # We just need to start Docker Desktop if it's not running
 
-          # Wait for installation to complete
-          sleep 5
-
-          # Start Docker Desktop - try multiple approaches
-          if [ -d "/Applications/Docker.app" ]; then
-            open /Applications/Docker.app
-          else
-            open -a "Docker Desktop" || open -a Docker || true
-          fi
-
-          # Wait for Docker to be ready
-          echo "Waiting for Docker to start..."
-          for i in {1..60}; do
-            if docker info &>/dev/null; then
-              echo "Docker is ready"
-              break
-            fi
-            echo "Waiting for Docker... ($i/60)"
-            sleep 5
-          done
-
+          # Check if Docker is already running
           if ! docker info &>/dev/null; then
-            echo "Docker failed to start"
-            exit 1
+            echo "Docker is not running. Starting Docker Desktop..."
+
+            # Start Docker Desktop
+            open -a Docker
+
+            # Wait for Docker to be ready (up to 5 minutes)
+            echo "Waiting for Docker to start..."
+            for i in {1..60}; do
+              if docker info &>/dev/null; then
+                echo "Docker is ready"
+                break
+              fi
+              echo "Waiting for Docker... ($i/60)"
+              sleep 5
+            done
+
+            if ! docker info &>/dev/null; then
+              echo "Docker failed to start"
+              exit 1
+            fi
+          else
+            echo "Docker is already running"
           fi
 
           docker version
