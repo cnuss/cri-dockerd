@@ -61,12 +61,13 @@ func (ds *dockerService) determinePodIPBySandboxID(uid string) []string {
 
 func getNetworkNamespace(c *dockertypes.ContainerJSON) (string, error) {
 	// macOS Docker doesn't support native network namespaces in the same way as Linux
-	// Return a simplified identifier or error
+	// macOS doesn't have /proc filesystem, so we return the NetworkMode like Windows does
+	// The referenced container id is used to figure out the network namespace id internally by the platform
 	if c.State.Pid == 0 {
 		// Docker reports pid 0 for an exited container.
 		return "", fmt.Errorf("cannot find network namespace for the terminated container %q", c.ID)
 	}
-	return fmt.Sprintf(dockerNetNSFmt, c.State.Pid), nil
+	return string(c.HostConfig.NetworkMode), nil
 }
 
 type containerCleanupInfo struct{}
