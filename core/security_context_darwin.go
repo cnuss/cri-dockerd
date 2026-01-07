@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -20,11 +20,23 @@ limitations under the License.
 package core
 
 import (
-	"fmt"
-
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-func (ds *dockerService) getContainerStats(c *runtimeapi.Container) (*runtimeapi.ContainerStats, error) {
-	return nil, fmt.Errorf("not implemented")
+func (ds *dockerService) getSecurityOpts(
+	seccompProfile *v1.SecurityProfile,
+	privileged bool,
+	separator rune,
+) ([]string, error) {
+	if seccompProfile != nil {
+		logrus.Info("seccomp annotations are not supported on darwin")
+	}
+	return nil, nil
+}
+
+func (ds *dockerService) getSandBoxSecurityOpts(separator rune) []string {
+	// macOS Docker has limited security options compared to Linux
+	// Return nil for now
+	return nil
 }

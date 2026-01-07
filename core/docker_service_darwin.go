@@ -1,6 +1,3 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
-
 /*
 Copyright 2021 Mirantis
 
@@ -19,12 +16,4 @@ limitations under the License.
 
 package core
 
-import (
-	"fmt"
-
-	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
-)
-
-func (ds *dockerService) getContainerStats(c *runtimeapi.Container) (*runtimeapi.ContainerStats, error) {
-	return nil, fmt.Errorf("not implemented")
-}
+var kernelSupportsRRO = false
