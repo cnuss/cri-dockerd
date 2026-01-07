@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -29,22 +29,9 @@ import (
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-// DefaultMemorySwap always returns -1 for no memory swap in a sandbox
+// DefaultMemorySwap always returns 0 for no memory swap in a sandbox
 func DefaultMemorySwap() int64 {
-	return -1
-}
-
-func (ds *dockerService) getSecurityOpts(
-	seccompProfile *runtimeapi.SecurityProfile, privileged bool,
-	separator rune,
-) ([]string, error) {
-	logrus.Info("getSecurityOpts is unsupported in this build")
-	return nil, nil
-}
-
-func (ds *dockerService) getSandBoxSecurityOpts(separator rune) []string {
-	logrus.Info("getSandBoxSecurityOpts is unsupported in this build")
-	return nil
+	return 0
 }
 
 func (ds *dockerService) updateCreateConfig(
@@ -52,17 +39,35 @@ func (ds *dockerService) updateCreateConfig(
 	config *runtimeapi.ContainerConfig,
 	sandboxConfig *runtimeapi.PodSandboxConfig,
 	podSandboxID string, securityOptSep rune, apiVersion *semver.Version) error {
-	logrus.Info("updateCreateConfig is unsupported in this build")
+	// Apply Linux-specific options if applicable.
+	// Note: macOS Docker doesn't support cgroups, so we skip cgroup-related configurations
+	if lc := config.GetLinux(); lc != nil {
+		// Apply security context (limited on macOS)
+		if err := applyContainerSecurityContext(lc, podSandboxID, createConfig.Config, createConfig.HostConfig, securityOptSep); err != nil {
+			return fmt.Errorf(
+				"failed to apply container security context for container %q: %v",
+				config.Metadata.Name,
+				err,
+			)
+		}
+	}
+
 	return nil
 }
 
 func (ds *dockerService) determinePodIPBySandboxID(uid string) []string {
-	logrus.Info("determinePodIPBySandboxID is unsupported in this build")
 	return nil
 }
 
 func getNetworkNamespace(c *dockertypes.ContainerJSON) (string, error) {
-	return "", fmt.Errorf("unsupported platform")
+	// macOS Docker doesn't support native network namespaces in the same way as Linux
+	// macOS doesn't have /proc filesystem, so we return the NetworkMode like Windows does
+	// The referenced container id is used to figure out the network namespace id internally by the platform
+	if c.State.Pid == 0 {
+		// Docker reports pid 0 for an exited container.
+		return "", fmt.Errorf("cannot find network namespace for the terminated container %q", c.ID)
+	}
+	return string(c.HostConfig.NetworkMode), nil
 }
 
 type containerCleanupInfo struct{}
