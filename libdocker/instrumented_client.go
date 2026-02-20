@@ -256,7 +256,7 @@ func (in instrumentedInterface) StartExec(
 	return err
 }
 
-func (in instrumentedInterface) InspectExec(id string) (*dockertypes.ContainerExecInspect, error) {
+func (in instrumentedInterface) InspectExec(id string) (*dockercontainer.ExecInspect, error) {
 	const operation = "inspect_exec"
 	defer recordOperation(operation, time.Now())
 

@@ -32,7 +32,6 @@ func (ds *dockerService) getContainerStats(container *runtimeapi.Container) (*ru
 		return nil, err
 	}
 
-	dockerStats := statsJSON.Stats
 	timestamp := time.Now().UnixNano()
 	containerStats := &runtimeapi.ContainerStats{
 		Attributes: &runtimeapi.ContainerAttributes{
@@ -44,13 +43,13 @@ func (ds *dockerService) getContainerStats(container *runtimeapi.Container) (*ru
 		Cpu: &runtimeapi.CpuUsage{
 			Timestamp: timestamp,
 			UsageCoreNanoSeconds: &runtimeapi.UInt64Value{
-				Value: dockerStats.CPUStats.CPUUsage.TotalUsage,
+				Value: statsJSON.CPUStats.CPUUsage.TotalUsage,
 			},
 		},
 		Memory: &runtimeapi.MemoryUsage{
 			Timestamp: timestamp,
 			WorkingSetBytes: &runtimeapi.UInt64Value{
-				Value: dockerStats.MemoryStats.Usage,
+				Value: statsJSON.MemoryStats.Usage,
 			},
 		},
 	}

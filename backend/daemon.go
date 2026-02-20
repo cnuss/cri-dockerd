@@ -25,7 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
-	"k8s.io/kubernetes/pkg/kubelet/util"
 
 	"github.com/Mirantis/cri-dockerd/core"
 )
@@ -52,15 +51,39 @@ func NewCriDockerServer(endpoint string, s core.DockerService) *CriDockerService
 	}
 }
 
+// createListener creates a net.Listener for a given endpoint address.
+// It supports unix:// and tcp:// protocols.
+func createListener(addr string) (net.Listener, error) {
+	addrSlice := strings.SplitN(addr, "://", 2)
+	if len(addrSlice) != 2 {
+		return nil, fmt.Errorf("invalid address format: %s", addr)
+	}
+	proto := addrSlice[0]
+	listenAddr := addrSlice[1]
+
+	switch proto {
+	case "unix":
+		// Remove existing socket file if it exists
+		if err := os.Remove(listenAddr); err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to remove existing socket file: %w", err)
+		}
+		return net.Listen("unix", listenAddr)
+	case "tcp":
+		return net.Listen("tcp", listenAddr)
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %s", proto)
+	}
+}
+
 func getListener(addr string) (net.Listener, error) {
 	addrSlice := strings.SplitN(addr, "://", 2)
 	proto := addrSlice[0]
-	listenAddr := addrSlice[1]
 	switch proto {
 	case "fd":
+		listenAddr := addrSlice[1]
 		return listenFD(listenAddr)
 	default:
-		return util.CreateListener(addr)
+		return createListener(addr)
 	}
 }
 

@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
 Copyright 2021 Mirantis
 
@@ -22,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Mirantis/cri-dockerd/config"
-
 	"github.com/sirupsen/logrus"
 
 	utiliptables "k8s.io/kubernetes/pkg/util/iptables"
@@ -37,23 +38,6 @@ const (
 	// kubeMarkMasqChain is the mark-for-masquerade chain
 	kubeMarkMasqChain string = "KUBE-MARK-MASQ"
 )
-
-// PortMapping represents a network port in a container
-type PortMapping struct {
-	HostPort      int32
-	ContainerPort int32
-	Protocol      config.Protocol
-	HostIP        string
-}
-
-// PodPortMapping represents a pod's network state and associated container port mappings
-type PodPortMapping struct {
-	Namespace    string
-	Name         string
-	PortMappings []*PortMapping
-	HostNetwork  bool
-	IP           net.IP
-}
 
 // ipFamily refers to a specific family if not empty, i.e. "4" or "6".
 type ipFamily string

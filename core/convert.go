@@ -23,8 +23,8 @@ import (
 	"time"
 
 	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
 	dockerimagetypes "github.com/docker/docker/api/types/image"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
@@ -46,7 +46,7 @@ func imageToRuntimeAPIImage(image *dockerimagetypes.Summary, pinned bool) (*runt
 		Id:          image.ID,
 		RepoTags:    image.RepoTags,
 		RepoDigests: image.RepoDigests,
-		Size_:       uint64(image.Size),
+		Size:        uint64(image.Size),
 		Pinned:      pinned,
 	}, nil
 }
@@ -60,7 +60,7 @@ func imageInspectToRuntimeAPIImage(image *dockertypes.ImageInspect, pinned bool)
 		Id:          image.ID,
 		RepoTags:    image.RepoTags,
 		RepoDigests: image.RepoDigests,
-		Size_:       uint64(image.Size),
+		Size:        uint64(image.Size),
 		Pinned:      pinned,
 	}
 
@@ -135,14 +135,13 @@ func containerInspectToRuntimeAPIContainerInfo(container *dockertypes.ContainerJ
 	return info, nil
 }
 
-func toRuntimeAPIConfig(config *dockercontainer.Config) imagespec.ImageConfig {
-	ports := make(map[string]struct{})
-	for k, v := range config.ExposedPorts {
-		ports[string(k)] = v
+func toRuntimeAPIConfig(config *dockerspec.DockerOCIImageConfig) imagespec.ImageConfig {
+	if config == nil {
+		return imagespec.ImageConfig{}
 	}
 	return imagespec.ImageConfig{
 		User:         config.User,
-		ExposedPorts: ports,
+		ExposedPorts: config.ExposedPorts,
 		Env:          config.Env,
 		Entrypoint:   config.Entrypoint,
 		Cmd:          config.Cmd,

@@ -34,6 +34,7 @@ import (
 	dockerimagetypes "github.com/docker/docker/api/types/image"
 	dockerregistry "github.com/docker/docker/api/types/registry"
 	dockersystem "github.com/docker/docker/api/types/system"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/clock"
@@ -847,7 +848,7 @@ func createImageInspectFromRef(ref string) *dockertypes.ImageInspect {
 		// Image size is required to be non-zero for CRI integration.
 		VirtualSize: fakeImageSize,
 		Size:        fakeImageSize,
-		Config:      &dockercontainer.Config{},
+		Config:      &dockerspec.DockerOCIImageConfig{},
 	}
 }
 
@@ -858,7 +859,7 @@ func createImageInspectFromImage(image dockerimagetypes.Summary) *dockertypes.Im
 		// Image size is required to be non-zero for CRI integration.
 		VirtualSize: fakeImageSize,
 		Size:        fakeImageSize,
-		Config:      &dockercontainer.Config{},
+		Config:      &dockerspec.DockerOCIImageConfig{},
 	}
 }
 
