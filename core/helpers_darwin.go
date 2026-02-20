@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !darwin
-// +build !linux,!windows,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -25,26 +25,15 @@ import (
 	"github.com/blang/semver"
 	dockertypes "github.com/docker/docker/api/types"
 	dockerbackend "github.com/docker/docker/api/types/backend"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/sirupsen/logrus"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-// DefaultMemorySwap always returns -1 for no memory swap in a sandbox
+// DefaultMemorySwap returns -1 for no memory swap in a sandbox on Darwin.
+// Docker Desktop handles memory management through its VM.
 func DefaultMemorySwap() int64 {
 	return -1
-}
-
-func (ds *dockerService) getSecurityOpts(
-	seccompProfile *runtimeapi.SecurityProfile, privileged bool,
-	separator rune,
-) ([]string, error) {
-	logrus.Info("getSecurityOpts is unsupported in this build")
-	return nil, nil
-}
-
-func (ds *dockerService) getSandBoxSecurityOpts(separator rune) []string {
-	logrus.Info("getSandBoxSecurityOpts is unsupported in this build")
-	return nil
 }
 
 func (ds *dockerService) updateCreateConfig(
@@ -52,24 +41,68 @@ func (ds *dockerService) updateCreateConfig(
 	config *runtimeapi.ContainerConfig,
 	sandboxConfig *runtimeapi.PodSandboxConfig,
 	podSandboxID string, securityOptSep rune, apiVersion *semver.Version) error {
-	logrus.Info("updateCreateConfig is unsupported in this build")
+	// Apply Linux-specific options if applicable.
+	// On Darwin with Docker Desktop, these are passed to the Linux VM.
+	if lc := config.GetLinux(); lc != nil {
+		rOpts := lc.GetResources()
+		if rOpts != nil {
+			createConfig.HostConfig.Resources = dockercontainer.Resources{
+				Memory:     rOpts.MemoryLimitInBytes,
+				MemorySwap: rOpts.MemoryLimitInBytes,
+				CPUShares:  rOpts.CpuShares,
+				CPUQuota:   rOpts.CpuQuota,
+				CPUPeriod:  rOpts.CpuPeriod,
+				CpusetCpus: rOpts.CpusetCpus,
+				CpusetMems: rOpts.CpusetMems,
+			}
+			createConfig.HostConfig.OomScoreAdj = int(rOpts.OomScoreAdj)
+		}
+
+		// Apply security context - delegated to Docker Desktop's Linux VM
+		if err := applyContainerSecurityContext(lc, podSandboxID, createConfig.Config, createConfig.HostConfig, securityOptSep); err != nil {
+			return fmt.Errorf(
+				"failed to apply container security context for container %q: %v",
+				config.Metadata.Name,
+				err,
+			)
+		}
+	}
+
+	// Apply cgroupsParent derived from the sandbox config.
+	// Docker Desktop handles cgroups in its Linux VM.
+	if lc := sandboxConfig.GetLinux(); lc != nil {
+		cgroupParent, err := ds.GenerateExpectedCgroupParent(lc.CgroupParent)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to generate cgroup parent in expected syntax for container %q: %v",
+				config.Metadata.Name,
+				err,
+			)
+		}
+		createConfig.HostConfig.CgroupParent = cgroupParent
+	}
+
 	return nil
 }
 
 func (ds *dockerService) determinePodIPBySandboxID(uid string) []string {
-	logrus.Info("determinePodIPBySandboxID is unsupported in this build")
+	// On Darwin, networking is managed by Docker Desktop
 	return nil
 }
 
 func getNetworkNamespace(c *dockertypes.ContainerJSON) (string, error) {
-	return "", fmt.Errorf("unsupported platform")
+	// On Darwin with Docker Desktop, containers run in a Linux VM.
+	// The network namespace path format follows Linux conventions,
+	// but the actual namespace is inside the VM.
+	if c.State.Pid == 0 {
+		return "", fmt.Errorf("cannot find network namespace for the terminated container %q", c.ID)
+	}
+	// Return the Linux-style path - Docker Desktop handles the translation
+	return fmt.Sprintf(dockerNetNSFmt, c.State.Pid), nil
 }
 
 type containerCleanupInfo struct{}
 
-// applyPlatformSpecificDockerConfig applies platform-specific configurations to a dockerbackend.ContainerCreateConfig struct.
-// The containerCleanupInfo struct it returns will be passed as is to performPlatformSpecificContainerCleanup
-// after either the container creation has failed or the container has been removed.
 func (ds *dockerService) applyPlatformSpecificDockerConfig(
 	*runtimeapi.CreateContainerRequest,
 	*dockerbackend.ContainerCreateConfig,
@@ -77,18 +110,12 @@ func (ds *dockerService) applyPlatformSpecificDockerConfig(
 	return nil, nil
 }
 
-// performPlatformSpecificContainerCleanup is responsible for doing any platform-specific cleanup
-// after either the container creation has failed or the container has been removed.
 func (ds *dockerService) performPlatformSpecificContainerCleanup(
 	cleanupInfo *containerCleanupInfo,
 ) (errors []error) {
 	return
 }
 
-// platformSpecificContainerInitCleanup is called when cri-dockerd
-// is starting, and is meant to clean up any cruft left by previous runs
-// creating containers.
-// Errors are simply logged, but don't prevent cri-dockerd from starting.
 func (ds *dockerService) platformSpecificContainerInitCleanup() (errors []error) {
 	return
 }

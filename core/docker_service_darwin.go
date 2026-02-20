@@ -1,5 +1,5 @@
-//go:build !linux && !darwin
-// +build !linux,!darwin
+//go:build darwin
+// +build darwin
 
 /*
 Copyright 2021 Mirantis
@@ -19,4 +19,7 @@ limitations under the License.
 
 package core
 
-var kernelSupportsRRO = false
+// kernelSupportsRRO is set to true on Darwin because Docker Desktop
+// runs a Linux VM with a modern kernel (5.15+) that supports
+// recursive read-only mounts.
+var kernelSupportsRRO = true
