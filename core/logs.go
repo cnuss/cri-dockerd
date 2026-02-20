@@ -172,6 +172,15 @@ func (ds *dockerService) createContainerLogSymlink(containerID string) error {
 
 	if realPath != "" {
 		// Only create the symlink when container log path is specified and log file exists.
+		// On Darwin with Docker Desktop, the realPath is inside the VM and not accessible
+		// from the host, so check if it exists before creating the symlink.
+		if _, err := os.Stat(realPath); err != nil {
+			if os.IsNotExist(err) {
+				logrus.Debugf("Container log file %q does not exist on host (expected on Docker Desktop), skipping symlink creation", realPath)
+				return nil
+			}
+			return fmt.Errorf("failed to stat container log file %q: %v", realPath, err)
+		}
 		// Delete possibly existing file first
 		if err = ds.os.Remove(path); err == nil {
 			logrus.Debugf("Deleted previously existing symlink file: %s", path)

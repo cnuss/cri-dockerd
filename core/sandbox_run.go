@@ -60,6 +60,11 @@ func (ds *dockerService) RunPodSandbox(
 			err,
 		)
 	}
+
+	// Apply DNS config directly to Docker on platforms where resolv.conf
+	// rewriting is not possible (e.g., Darwin with Docker Desktop).
+	applyDNSConfig(createConfig, containerConfig.GetDnsConfig())
+
 	// k8s RuntimeClass.handler=docker will use docker's default runtime
 	runtimeHandler := r.GetRuntimeHandler()
 	if runtimeHandler != "" && runtimeHandler != runtimeName {
@@ -115,22 +120,26 @@ func (ds *dockerService) RunPodSandbox(
 	// after sandbox creation to override docker's behaviour. This resolv.conf
 	// file is shared by all containers of the same pod, and needs to be modified
 	// only once per pod.
-	if dnsConfig := containerConfig.GetDnsConfig(); dnsConfig != nil {
-		containerInfo, err := ds.client.InspectContainer(createResp.ID)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to inspect sandbox container for pod %q: %v",
-				containerConfig.Metadata.Name,
-				err,
-			)
-		}
+	// On Darwin with Docker Desktop, resolv.conf is inside the VM and not accessible,
+	// so we skip this and pass DNS config directly to Docker via HostConfig.
+	if shouldRewriteResolvConf() {
+		if dnsConfig := containerConfig.GetDnsConfig(); dnsConfig != nil {
+			containerInfo, err := ds.client.InspectContainer(createResp.ID)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to inspect sandbox container for pod %q: %v",
+					containerConfig.Metadata.Name,
+					err,
+				)
+			}
 
-		if err := rewriteResolvFile(containerInfo.ResolvConfPath, dnsConfig.Servers, dnsConfig.Searches, dnsConfig.Options); err != nil {
-			return nil, fmt.Errorf(
-				"rewrite resolv.conf failed for pod %q: %v",
-				containerConfig.Metadata.Name,
-				err,
-			)
+			if err := rewriteResolvFile(containerInfo.ResolvConfPath, dnsConfig.Servers, dnsConfig.Searches, dnsConfig.Options); err != nil {
+				return nil, fmt.Errorf(
+					"rewrite resolv.conf failed for pod %q: %v",
+					containerConfig.Metadata.Name,
+					err,
+				)
+			}
 		}
 	}
 
